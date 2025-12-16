@@ -3,9 +3,9 @@ use std::path::PathBuf;
 #[derive(Clone, Debug)]
 pub struct Card {
     pub file_path: PathBuf,
-    //pub file_card_range: (usize, usize),
+    pub file_card_range: (usize, usize),
     pub content: CardContent,
-    //pub card_hash: String,
+    pub card_hash: String,
     //pub file_hash: String,
 }
 

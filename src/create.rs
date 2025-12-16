@@ -1,7 +1,7 @@
 use crate::{
     card::CardType,
     editor::Editor,
-    utils::{content_to_card, validate_file_can_be_card},
+    utils::{cards_from_md, content_to_card, validate_file_can_be_card},
 };
 
 use std::{
@@ -53,7 +53,11 @@ fn prompt_create(path: &Path) -> io::Result<bool> {
 }
 
 fn append_to_card(path: &Path, contents: &str) -> Result<()> {
-    let _ = content_to_card(path, contents).context("Invalid card")?;
+    let existing_len = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let start_idx = existing_len as usize;
+    let end_idx = start_idx + contents.len();
+
+    let card = content_to_card(path, contents, start_idx, end_idx).context("Invalid card")?;
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {
@@ -70,6 +74,7 @@ fn append_to_card(path: &Path, contents: &str) -> Result<()> {
         writeln!(file)?;
     }
     writeln!(file, "{}", trimmed)?;
+
     Ok(())
 }
 
@@ -91,6 +96,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
     let editor_result: io::Result<()> = (|| {
         let mut editor = Editor::new();
         let mut status: Option<String> = None;
+        let mut num_cards_in_collection = cards_from_md(card_path).unwrap_or_default().len();
         let mut card_created_count = 0;
         let mut card_last_save_attempt: Option<std::time::Instant> = None;
         let mut view_height = 0usize;
@@ -117,7 +123,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                 let mut help = String::from(
                     "Ctrl+B for basic card • Ctrl+K for cloze card • Ctrl+S save • Esc/Ctrl-C exit\n",
                 );
-                help.push_str(&format!("Cards created: {}", card_created_count));
+                help.push_str(&format!("Cards in collection: {} • Cards created: {}", num_cards_in_collection, card_created_count));
                 if let Some(time) = card_last_save_attempt &&  time.elapsed().as_secs_f32() < 1.0 && status.is_some(){
                             help.push_str(&format!(" | {}", status.clone().unwrap()));
                     }
@@ -165,6 +171,7 @@ fn capture_cards(card_path: &Path) -> io::Result<()> {
                         Ok(_) => {
                             editor.clear();
                             card_created_count += 1;
+                            num_cards_in_collection += 1;
                             card_last_save_attempt = Some(std::time::Instant::now());
                             status = Some(String::from("Card saved."))
                         }

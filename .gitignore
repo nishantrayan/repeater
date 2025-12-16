@@ -1,3 +1,5 @@
 .DS_Store
 /target
 *.md
+# keep markdown files in test_data/
+!test_data/*.md

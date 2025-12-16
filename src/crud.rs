@@ -9,6 +9,8 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 
+use crate::card::Card;
+
 pub struct DB {
     pool: SqlitePool,
 }
@@ -23,7 +25,6 @@ impl DB {
 
         let db_path: PathBuf = data_dir.join("cards.db");
         let db_url = format!("sqlite://{}", db_path.to_string_lossy());
-        dbg!(&db_url);
         let options =
             SqliteConnectOptions::from_str(&db_path.to_string_lossy())?.create_if_missing(true);
         let pool = SqlitePoolOptions::new()
@@ -38,6 +39,42 @@ impl DB {
         }
 
         Ok(Self { pool })
+    }
+
+    pub async fn add_card(&self, card: &Card) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+
+        sqlx::query(
+            r#"
+        INSERT INTO cards (
+            card_hash,
+            added_at,
+            last_reviewed_at,
+            stability,
+            difficulty,
+            interval_raw,
+            interval_days,
+            due_date,
+            review_count
+        )
+        VALUES (?, ?, NULL, NULL, NULL, NULL, 0, NULL, 0)
+        "#,
+        )
+        .bind(&card.card_hash)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn card_exists(&self, card: &Card) -> Result<bool> {
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(1) FROM cards WHERE card_hash = ?")
+            .bind(&card.card_hash)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(count > 0)
     }
 }
 
