@@ -80,8 +80,7 @@ jobs:
         uses: mislav/bump-homebrew-formula-action@v2
         with:
           formula-name: repeat
-          org: shaankhosla
-          tap: homebrew-tap
+          formula-path: Formula/repeat.rb
           tag-name: ${{ needs.release.outputs.tag_name }}
           download-url: https://github.com/${{ github.repository }}/releases/download/${{ needs.release.outputs.tag_name }}/repeat
         env:
