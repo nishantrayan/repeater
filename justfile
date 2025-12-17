@@ -6,3 +6,9 @@ precommit:
 
 delete_db:
     rm "/Users/shaankhosla/Library/Application Support/repeat/cards.db"
+
+create:
+    cargo run -- create test.md
+
+drill:
+    cargo run -- drill

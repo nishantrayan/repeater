@@ -5,6 +5,7 @@ use self::crud::DB;
 mod card;
 mod create;
 mod crud;
+mod drill;
 mod editor;
 pub(crate) mod utils;
 
@@ -13,8 +14,10 @@ pub(crate) mod utils;
 enum Args {
     /// Drill cards
     Drill {
-        /// Path to the collection directory. By default, the current working directory is used.
-        directory: Option<String>,
+        /// Paths to cards or directories containing them.
+        /// You can pass a single file, multiple files, or a directory.
+        #[arg(value_name = "PATHS", num_args = 0.., default_value = ".")]
+        paths: Vec<String>,
         /// Maximum number of cards to drill in a session. By default, all cards due today are drilled.
         #[arg(long)]
         card_limit: Option<usize>,
@@ -36,7 +39,15 @@ async fn main() {
         .await
         .expect("Failed to connect to or initialize database");
     match args {
-        Args::Drill { .. } => todo!(),
+        Args::Drill {
+            paths,
+            card_limit,
+            new_card_limit,
+        } => {
+            if let Err(error) = drill::run(&db, paths, card_limit, new_card_limit).await {
+                eprintln!("error: {error}")
+            }
+        }
         Args::Create { card_path } => {
             if let Err(err) = create::run(&db, card_path).await {
                 eprintln!("error: {err}");

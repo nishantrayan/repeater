@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
@@ -153,9 +153,50 @@ pub fn cards_from_md(path: &Path) -> Result<Vec<Card>> {
 
     Ok(cards)
 }
+
+fn collect_markdown_files(path: &Path, acc: &mut Vec<PathBuf>) -> Result<()> {
+    if path.is_file() {
+        if is_markdown(path) {
+            acc.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            if entry.file_type()?.is_dir() {
+                collect_markdown_files(&entry_path, acc)?;
+            } else if is_markdown(&entry_path) {
+                acc.push(entry_path);
+            }
+        }
+        return Ok(());
+    }
+
+    Err(anyhow!("Path does not exist: {}", path.display()))
+}
+
+pub fn cards_from_files(paths: &[PathBuf]) -> Result<Vec<Card>> {
+    let mut cards = Vec::new();
+    for path in paths {
+        cards.extend(cards_from_md(path)?);
+    }
+    Ok(cards)
+}
+
+pub fn cards_from_dir(path: &Path) -> Result<Vec<Card>> {
+    let mut markdown_files = Vec::new();
+    collect_markdown_files(path, &mut markdown_files)?;
+    markdown_files.sort();
+
+    cards_from_files(&markdown_files)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::utils::content_to_card;
+    use crate::utils::{cards_from_dir, content_to_card};
     use std::path::PathBuf;
 
     use crate::card::CardContent;
@@ -207,5 +248,17 @@ mod tests {
         let cards = cards_from_md(&card_path).expect("should be ok");
 
         assert_eq!(cards.len(), 3);
+    }
+
+    #[test]
+    fn collects_cards_from_directory() {
+        let dir_path = PathBuf::from("test_data");
+        let cards = cards_from_dir(&dir_path).expect("should collect cards");
+        assert_eq!(cards.len(), 3);
+        assert!(
+            cards
+                .iter()
+                .all(|card| card.file_path.ends_with("test_data/test.md"))
+        );
     }
 }

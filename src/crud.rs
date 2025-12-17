@@ -70,6 +70,42 @@ impl DB {
         Ok(())
     }
 
+    pub async fn add_cards_batch(&self, cards: &[Card]) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        let now = chrono::Utc::now().to_rfc3339();
+
+        for card in cards {
+            if self.card_exists(card).await? {
+                continue;
+            }
+
+            sqlx::query(
+                r#"
+            INSERT INTO cards (
+                card_hash,
+                added_at,
+                last_reviewed_at,
+                stability,
+                difficulty,
+                interval_raw,
+                interval_days,
+                due_date,
+                review_count
+            )
+            VALUES (?, ?, NULL, NULL, NULL, NULL, 0, NULL, 0)
+            "#,
+            )
+            .bind(&card.card_hash)
+            .bind(&now)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn card_exists(&self, card: &Card) -> Result<bool> {
         let (count,): (i64,) = sqlx::query_as("SELECT COUNT(1) FROM cards WHERE card_hash = ?")
             .bind(&card.card_hash)
