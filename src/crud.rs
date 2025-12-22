@@ -232,7 +232,7 @@ impl DB {
 
         let mut rows = sqlx::query(
             r#"
-            SELECT card_hash, review_count, due_date, interval_raw, difficulty
+            SELECT card_hash, review_count, due_date, interval_raw, difficulty, stability, last_reviewed_at
             FROM cards
             "#,
         )
@@ -247,6 +247,11 @@ impl DB {
                 .map(|dt| dt.with_timezone(&chrono::Utc));
             let interval: f64 = row.get("interval_raw");
             let difficulty: f64 = row.get("difficulty");
+            let stability: f64 = row.get("stability");
+            let last_reviewed_at = row
+                .try_get::<Option<String>, _>("last_reviewed_at")?
+                .and_then(|due| chrono::DateTime::parse_from_rfc3339(&due).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc));
 
             stats.total_cards_in_db += 1;
 
@@ -254,7 +259,15 @@ impl DB {
                 Some(card) => card,
                 None => continue,
             };
-            stats.update(card, review_count, due_date, interval, difficulty);
+            stats.update(
+                card,
+                review_count,
+                due_date,
+                interval,
+                difficulty,
+                stability,
+                last_reviewed_at,
+            );
         }
 
         Ok(stats)

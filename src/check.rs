@@ -1,7 +1,7 @@
 use crate::{
     crud::DB,
     drill::register_all_cards,
-    stats::{CardLifeCycle, CardStats},
+    stats::{CardLifeCycle, CardStats, Histogram},
     theme::Theme,
 };
 
@@ -97,7 +97,8 @@ fn draw_dashboard(frame: &mut Frame<'_>, stats: &CardStats) {
         .split(rows[1]);
 
     render_upcoming_histogram(frame, mid[0], stats);
-    frame.render_widget(fsrs_panel(stats), mid[1]);
+
+    render_fsrs_panel(frame, mid[1], stats);
 
     frame.render_widget(help_panel(stats), rows[2]);
 }
@@ -159,7 +160,7 @@ fn due_panel(stats: &CardStats) -> Paragraph<'static> {
     } else {
         stats.due_cards as f32 / stats.num_cards as f32
     };
-    let emphasis = if stats.overdue_cards > 0 {
+    let emphasis = if stats.due_cards > 0 {
         Theme::danger()
     } else if stats.due_cards == 0 {
         Theme::success()
@@ -168,13 +169,7 @@ fn due_panel(stats: &CardStats) -> Paragraph<'static> {
     };
     let upcoming_week_total: usize = stats.upcoming_week.values().sum();
     let lines = vec![
-        Line::from(vec![
-            Span::styled("Focus", emphasis),
-            Theme::bullet(),
-            Theme::muted_span("Overdue pressure"),
-            Theme::bullet(),
-            Theme::label_span(format!("{}", stats.overdue_cards)),
-        ]),
+        Line::from(vec![Span::styled("Focus", emphasis)]),
         Line::from(vec![
             Theme::muted_span("Due load"),
             Theme::bullet(),
@@ -266,14 +261,103 @@ fn format_upcoming_label(day: &str) -> String {
         .unwrap_or_else(|_| day.to_string())
 }
 
-fn fsrs_panel(stats: &CardStats) -> Paragraph<'static> {
-    dbg!(&stats.difficulty_histogram);
-    let lines = vec![Line::from(vec![]), Line::from(vec![])];
+fn render_fsrs_histogram(
+    frame: &mut Frame<'_>,
+    chart_area: Rect,
+    histogram_stats: &Histogram<5>,
+    title: &str,
+    description: &str,
+) {
+    let section_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(6)])
+        .split(chart_area);
+    let difficulty_header = Paragraph::new(vec![
+        Line::from(vec![
+            Span::styled(format!("Card {}:", title), Theme::emphasis()),
+            Theme::bullet(),
+            Theme::muted_span("Average"),
+            Theme::bullet(),
+            Theme::label_span(format!("{}%", (histogram_stats.mean() * 100.0).round())),
+        ]),
+        Line::from(Theme::muted_span(description)),
+    ])
+    .style(Theme::body());
+    frame.render_widget(difficulty_header, section_chunks[0]);
+    let step_size = 100 / histogram_stats.bins.len().max(1);
+    let bars: Vec<Bar> = histogram_stats
+        .bins
+        .iter()
+        .enumerate()
+        .map(|(i, count)| {
+            let min_thresh = step_size * i;
+            let label = format!("{}%-{}%", min_thresh, min_thresh + step_size);
+            Bar::default()
+                .value(*count as u64)
+                .text_value(count.to_string())
+                .label(Line::from(vec![Theme::muted_span(label)]))
+                .style(Theme::label())
+        })
+        .collect();
 
-    Paragraph::new(lines)
-        .block(Theme::panel("FSRS Memory Health"))
+    let len = bars.len() as u16;
+    let available = chart_area.height.saturating_sub(1).max(1);
+    let denom = cmp::max(len, 1);
+    let raw_height = available / denom;
+    let bar_height = cmp::max(1, cmp::min(cmp::max(raw_height, 1), available));
+
+    let chart = BarChart::default()
+        .data(BarGroup::default().bars(&bars))
+        .bar_width(bar_height)
+        .bar_gap(0)
+        .value_style(Theme::body())
+        .label_style(Theme::muted())
+        .bar_style(Theme::label())
         .style(Theme::body())
-        .wrap(Wrap { trim: true })
+        .direction(Direction::Horizontal);
+
+    let mut chart_area = section_chunks[1];
+    // let right_pad = cmp::min(3, chart_area.width);
+    // chart_area.x = chart_area.x.saturating_add(right_pad);
+
+    let right_pad = cmp::min(2, chart_area.width);
+    chart_area.width = chart_area.width.saturating_sub(right_pad);
+
+    frame.render_widget(chart, chart_area);
+}
+
+fn render_fsrs_panel(frame: &mut Frame<'_>, area: Rect, stats: &CardStats) {
+    let block = Theme::panel_with_line(Theme::title_line("FSRS Memory Health"));
+    if stats.upcoming_week.is_empty() {
+        let empty = Paragraph::new(vec![Line::from(vec![Theme::muted_span(
+            "No FSRS statistics to display",
+        )])])
+        .style(Theme::body())
+        .block(block);
+        frame.render_widget(empty, area);
+        return;
+    }
+    frame.render_widget(block.clone(), area);
+    let inner = block.inner(area);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(inner);
+
+    render_fsrs_histogram(
+        frame,
+        chunks[0],
+        &stats.difficulty_histogram,
+        "Difficulty",
+        "The higher the difficulty, the slower stability will increase.",
+    );
+    render_fsrs_histogram(
+        frame,
+        chunks[1],
+        &stats.retrievability_histogram,
+        "Retrievability",
+        "The probability of recalling a card today.",
+    );
 }
 
 fn help_panel(stats: &CardStats) -> Paragraph<'static> {

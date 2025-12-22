@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use crate::card::Card;
+use crate::fsrs::calculate_recall;
 
 #[derive(Debug, Default)]
 pub struct CardStats {
@@ -10,16 +11,16 @@ pub struct CardStats {
     pub num_cards: i64,
     pub card_lifecycles: HashMap<CardLifeCycle, i64>,
     pub due_cards: i64,
-    pub overdue_cards: i64,
     pub upcoming_week: BTreeMap<String, usize>,
     pub upcoming_month: i64,
     pub file_paths: HashMap<PathBuf, usize>,
-    pub difficulty_histogram: Histogram<20>,
+    pub difficulty_histogram: Histogram<5>,
+    pub retrievability_histogram: Histogram<5>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Histogram<const N: usize> {
-    bins: [u32; N],
+    pub bins: [u32; N],
     count: u64,
     sum: f64,
 }
@@ -43,6 +44,9 @@ impl<const N: usize> Histogram<N> {
         self.count += 1;
         self.sum += value;
     }
+    pub fn mean(&self) -> f64 {
+        self.sum / self.count as f64
+    }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -61,6 +65,8 @@ impl CardStats {
         due_date: Option<chrono::DateTime<chrono::Utc>>,
         interval: f64,
         difficulty: f64,
+        stability: f64,
+        last_reviewed_at: Option<chrono::DateTime<chrono::Utc>>,
     ) {
         let now = chrono::Utc::now();
         let week_horizon = now + chrono::Duration::days(7);
@@ -84,9 +90,6 @@ impl CardStats {
             Some(due_date) => {
                 if due_date <= now {
                     self.due_cards += 1;
-                    if due_date < now {
-                        self.overdue_cards += 1;
-                    }
                 } else {
                     if due_date <= week_horizon {
                         let day = due_date.format("%Y-%m-%d").to_string();
@@ -99,6 +102,14 @@ impl CardStats {
                 }
             }
         }
-        self.difficulty_histogram.update(difficulty);
+        self.difficulty_histogram.update(difficulty / 10.0);
+        let Some(last_reviewed_at) = last_reviewed_at else {
+            return;
+        };
+
+        let elapsed_days =
+            now.signed_duration_since(last_reviewed_at).num_seconds() as f64 / 86_400.0;
+        let retrievabiliity = calculate_recall(elapsed_days.max(0.0), stability);
+        self.retrievability_histogram.update(retrievabiliity);
     }
 }
