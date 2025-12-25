@@ -8,6 +8,7 @@ on:
     branches:
       - '**'  
   workflow_dispatch:
+  workflow_call:
 
 env:
   SQLX_OFFLINE: "true"
@@ -36,4 +37,3 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
         run: cargo test --verbose
-
