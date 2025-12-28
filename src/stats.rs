@@ -86,10 +86,16 @@ impl CardStats {
         match due_date {
             None => {
                 self.due_cards += 1;
+                let day = now.format("%Y-%m-%d").to_string();
+                *self.upcoming_week.entry(day).or_insert(0) += 1;
+                self.upcoming_month += 1;
             }
             Some(due_date) => {
                 if due_date <= now {
                     self.due_cards += 1;
+                    let day = now.format("%Y-%m-%d").to_string();
+                    *self.upcoming_week.entry(day).or_insert(0) += 1;
+                    self.upcoming_month += 1;
                 } else {
                     if due_date <= week_horizon {
                         let day = due_date.format("%Y-%m-%d").to_string();
