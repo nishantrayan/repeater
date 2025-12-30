@@ -58,8 +58,16 @@ npm install repeat
 1. Create a deck in Markdown (`cards/neuro.md`):
 
    ```markdown
+   You can put your normal notes here, `repeat` will ignore them.
+   Once a "Q:,A:,C:" block is detected, it will automatically
+   turn it into a card.
+
    Q: What does a synaptic vesicle store?
    A: Neurotransmitters awaiting release.
+
+   ---
+   Use a separator to mark the end of a card^
+   Then feel free to go back to adding regular notes.
 
    C: Speech is [produced] in [Broca's] area.
    ```
@@ -129,10 +137,10 @@ Start a terminal drilling session for one or more files/directories (default: cu
 - `--card-limit <N>`: cap the number of cards reviewed this session.
 - `--new-card-limit <N>`: cap the number of unseen cards introduced.
 
-Example: drill only the physics decks and stop after 20 cards.
+Example: drill all the physics decks and a single chemistry deck, and stop after 20 cards.
 
 ```
-repeat drill flashcards/science/physics/ --card-limit 20
+repeat drill flashcards/science/physics/ flashcards/science/chemistry.md --card-limit 20
 ```
 
 ### `repeat create <path/to/deck.md>`
