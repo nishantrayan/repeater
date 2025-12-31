@@ -164,7 +164,7 @@ impl DB {
         &self,
         card: &Card,
         review_status: ReviewStatus,
-    ) -> Result<bool> {
+    ) -> Result<f64> {
         let current_performance = self.get_card_performance(card).await?;
         let now = chrono::Utc::now();
         let new_performance = update_performance(current_performance, review_status, now);
@@ -172,7 +172,7 @@ impl DB {
         let interval_days = new_performance.interval_days as i64;
         let review_count = new_performance.review_count as i64;
 
-        let result = sqlx::query!(
+        sqlx::query!(
             r#"
             UPDATE cards
             SET
@@ -197,7 +197,7 @@ impl DB {
         .execute(&self.pool)
         .await?;
 
-        Ok(result.rows_affected() > 0)
+        Ok(new_performance.interval_raw)
     }
 
     pub async fn get_card_performance(&self, card: &Card) -> Result<Performance> {

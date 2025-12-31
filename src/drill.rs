@@ -52,7 +52,26 @@ struct DrillState<'a> {
     redo_cards: Vec<Card>,
     current_idx: usize,
     show_answer: bool,
-    last_action: Option<ReviewStatus>,
+    last_action: Option<LastAction>,
+}
+struct LastAction {
+    action: ReviewStatus,
+    show_again: f64,
+}
+impl LastAction {
+    fn print(&self) -> String {
+        let mut show_again = String::new();
+        if self.show_again <= (30 / (60 * 24)) as f64 {
+            show_again.push_str("<30 mins");
+        } else if self.show_again <= 0.5 {
+            show_again.push_str("<12 hours");
+        } else if self.show_again <= 1.0 {
+            show_again.push_str("<1 day");
+        } else {
+            show_again.push_str(format!("{} days", self.show_again as i64).as_str());
+        }
+        format!(" {} (See again in {})", self.action.label(), show_again,)
+    }
 }
 
 impl<'a> DrillState<'a> {
@@ -86,14 +105,15 @@ impl<'a> DrillState<'a> {
         let current_card = self
             .current_card()
             .expect("card should exist when handling review");
-        self.db
+        let show_again = self
+            .db
             .update_card_performance(&current_card, action)
             .await?;
         if action == ReviewStatus::Fail {
             self.redo_cards.push(current_card.clone());
         }
 
-        self.last_action = Some(action);
+        self.last_action = Some(LastAction { action, show_again });
         self.current_idx += 1;
         self.show_answer = false;
         Ok(())
@@ -241,14 +261,14 @@ fn instructions_text(state: &DrillState<'_>) -> Vec<Line<'static>> {
         ]));
     }
 
-    if let Some(action) = state.last_action {
-        let style = match action {
+    if let Some(action) = &state.last_action {
+        let style = match action.action {
             ReviewStatus::Pass => Theme::success(),
             ReviewStatus::Fail => Theme::danger(),
         };
         lines.push(Line::from(vec![
             Theme::muted_span("Last:"),
-            Span::styled(format!(" {}", action.label()), style),
+            Span::styled(action.print(), style),
         ]));
     }
 
