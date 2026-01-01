@@ -107,6 +107,17 @@ pub struct ReviewedPerformance {
     pub review_count: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(type_name = "TEXT")]
+#[sqlx(rename_all = "snake_case")]
+pub enum ReviewStage {
+    #[default]
+    New,
+    LearningA,
+    LearningB,
+    Review,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Performance {
     #[default]
@@ -116,12 +127,12 @@ pub enum Performance {
     Review(ReviewedPerformance),
 }
 impl Performance {
-    pub fn label(&self) -> &'static str {
+    pub fn stage(&self) -> ReviewStage {
         match self {
-            Performance::New => "new",
-            Performance::LearningA(_) => "learning_a",
-            Performance::LearningB(_) => "learning_b",
-            Performance::Review(_) => "review",
+            Performance::New => ReviewStage::New,
+            Performance::LearningA(_) => ReviewStage::LearningA,
+            Performance::LearningB(_) => ReviewStage::LearningB,
+            Performance::Review(_) => ReviewStage::Review,
         }
     }
 }

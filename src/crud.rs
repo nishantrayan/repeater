@@ -12,10 +12,8 @@ use anyhow::anyhow;
 
 use crate::card::Card;
 use crate::check_version::VersionUpdateStats;
-use crate::fsrs::Performance;
-use crate::fsrs::ReviewStatus;
-use crate::fsrs::ReviewedPerformance;
 use crate::fsrs::update_performance;
+use crate::fsrs::{Performance, ReviewStage, ReviewStatus, ReviewedPerformance};
 use crate::stats::CardStats;
 
 const LEARN_AHEAD_THRESHOLD_MINS: Duration = Duration::minutes(20);
@@ -188,7 +186,7 @@ impl DB {
 
         let interval_days = reviewed.interval_days as i64;
         let review_count = reviewed.review_count as i64;
-        let review_stage = new_performance.label();
+        let review_stage = new_performance.stage();
 
         sqlx::query!(
             r#"
@@ -231,7 +229,7 @@ impl DB {
                 interval_days as "interval_days?: i64",
                 due_date as "due_date?: chrono::DateTime<chrono::Utc>",
                 review_count as "review_count!: i64",
-                review_stage as "review_stage!: String"
+                review_stage as "review_stage!: ReviewStage"
             FROM cards
             WHERE card_hash = ?
             "#,
@@ -266,16 +264,11 @@ impl DB {
                 .ok_or_else(|| anyhow!("missing due_date for card {}", card.card_hash))?,
             review_count: review_count as usize,
         };
-        match row.review_stage.as_str() {
-            "learning_a" => Ok(Performance::LearningA(reviewed)),
-            "learning_b" => Ok(Performance::LearningB(reviewed)),
-            "review" => Ok(Performance::Review(reviewed)),
-            "new" => Ok(Performance::New),
-            _ => Err(anyhow!(
-                "invalid review_stage for card {} with review_stage {}",
-                card.card_hash,
-                row.review_stage
-            )),
+        match row.review_stage {
+            ReviewStage::LearningA => Ok(Performance::LearningA(reviewed)),
+            ReviewStage::LearningB => Ok(Performance::LearningB(reviewed)),
+            ReviewStage::Review => Ok(Performance::Review(reviewed)),
+            ReviewStage::New => Ok(Performance::New),
         }
     }
 
