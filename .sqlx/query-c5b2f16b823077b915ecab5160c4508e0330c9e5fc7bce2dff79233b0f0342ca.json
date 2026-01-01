@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT\n                last_reviewed_at as \"last_reviewed_at?: chrono::DateTime<chrono::Utc>\",\n                stability as \"stability?: f64\",\n                difficulty as \"difficulty?: f64\",\n                interval_raw as \"interval_raw?: f64\",\n                interval_days as \"interval_days?: i64\",\n                due_date as \"due_date?: chrono::DateTime<chrono::Utc>\",\n                review_count as \"review_count!: i64\"\n            FROM cards\n            WHERE card_hash = ?\n            ",
+  "query": "\n            SELECT\n                last_reviewed_at as \"last_reviewed_at?: chrono::DateTime<chrono::Utc>\",\n                stability as \"stability?: f64\",\n                difficulty as \"difficulty?: f64\",\n                interval_raw as \"interval_raw?: f64\",\n                interval_days as \"interval_days?: i64\",\n                due_date as \"due_date?: chrono::DateTime<chrono::Utc>\",\n                review_count as \"review_count!: i64\",\n                review_stage as \"review_stage!: String\"\n            FROM cards\n            WHERE card_hash = ?\n            ",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,11 @@
         "name": "review_count!: i64",
         "ordinal": 6,
         "type_info": "Integer"
+      },
+      {
+        "name": "review_stage!: String",
+        "ordinal": 7,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -49,8 +54,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "830ecbc1966c831488e6f2a7f54bf3a3ece05bbdffc164722e4b71bc3185c0d1"
+  "hash": "c5b2f16b823077b915ecab5160c4508e0330c9e5fc7bce2dff79233b0f0342ca"
 }

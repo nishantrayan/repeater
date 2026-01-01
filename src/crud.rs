@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::Duration;
 use directories::ProjectDirs;
 use futures::TryStreamExt;
 use sqlx::SqlitePool;
@@ -16,6 +17,8 @@ use crate::fsrs::ReviewStatus;
 use crate::fsrs::ReviewedPerformance;
 use crate::fsrs::update_performance;
 use crate::stats::CardStats;
+
+const LEARN_AHEAD_THRESHOLD_MINS: Duration = Duration::minutes(20);
 
 #[derive(Clone)]
 pub struct DB {
@@ -174,8 +177,18 @@ impl DB {
         let now = chrono::Utc::now();
         let new_performance = update_performance(current_performance, review_status, now);
 
-        let interval_days = new_performance.interval_days as i64;
-        let review_count = new_performance.review_count as i64;
+        let reviewed = match &new_performance {
+            Performance::LearningA(r) | Performance::LearningB(r) | Performance::Review(r) => r,
+            Performance::New => {
+                return Err(anyhow!(
+                    "update_performance returned Performance::New unexpectedly"
+                ));
+            }
+        };
+
+        let interval_days = reviewed.interval_days as i64;
+        let review_count = reviewed.review_count as i64;
+        let review_stage = new_performance.label();
 
         sqlx::query!(
             r#"
@@ -187,22 +200,24 @@ impl DB {
                 interval_raw = ?,
                 interval_days = ?,
                 due_date = ?,
-                review_count = ?
+                review_count = ?,
+                review_stage = ?
             WHERE card_hash = ?
             "#,
-            new_performance.last_reviewed_at,
-            new_performance.stability,
-            new_performance.difficulty,
-            new_performance.interval_raw,
+            reviewed.last_reviewed_at,
+            reviewed.stability,
+            reviewed.difficulty,
+            reviewed.interval_raw,
             interval_days,
-            new_performance.due_date,
+            reviewed.due_date,
             review_count,
+            review_stage,
             card.card_hash,
         )
         .execute(&self.pool)
         .await?;
 
-        Ok(new_performance.interval_raw)
+        Ok(reviewed.interval_raw)
     }
 
     pub async fn get_card_performance(&self, card: &Card) -> Result<Performance> {
@@ -215,7 +230,8 @@ impl DB {
                 interval_raw as "interval_raw?: f64",
                 interval_days as "interval_days?: i64",
                 due_date as "due_date?: chrono::DateTime<chrono::Utc>",
-                review_count as "review_count!: i64"
+                review_count as "review_count!: i64",
+                review_stage as "review_stage!: String"
             FROM cards
             WHERE card_hash = ?
             "#,
@@ -250,8 +266,17 @@ impl DB {
                 .ok_or_else(|| anyhow!("missing due_date for card {}", card.card_hash))?,
             review_count: review_count as usize,
         };
-
-        Ok(Performance::Reviewed(reviewed))
+        match row.review_stage.as_str() {
+            "learning_a" => Ok(Performance::LearningA(reviewed)),
+            "learning_b" => Ok(Performance::LearningB(reviewed)),
+            "review" => Ok(Performance::Review(reviewed)),
+            "new" => Ok(Performance::New),
+            _ => Err(anyhow!(
+                "invalid review_stage for card {} with review_stage {}",
+                card.card_hash,
+                row.review_stage
+            )),
+        }
     }
 
     pub async fn due_today(
@@ -260,7 +285,7 @@ impl DB {
         card_limit: Option<usize>,
         new_card_limit: Option<usize>,
     ) -> Result<Vec<Card>> {
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = (chrono::Utc::now() + LEARN_AHEAD_THRESHOLD_MINS).to_rfc3339();
 
         // most overdue cards first
         // then cards due today

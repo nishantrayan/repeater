@@ -111,10 +111,48 @@ pub struct ReviewedPerformance {
 pub enum Performance {
     #[default]
     New,
-    Reviewed(ReviewedPerformance),
+    LearningA(ReviewedPerformance),
+    LearningB(ReviewedPerformance),
+    Review(ReviewedPerformance),
+}
+impl Performance {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Performance::New => "new",
+            Performance::LearningA(_) => "learning_a",
+            Performance::LearningB(_) => "learning_b",
+            Performance::Review(_) => "review",
+        }
+    }
 }
 
 pub fn update_performance(
+    perf: Performance,
+    review_status: ReviewStatus,
+    reviewed_at: chrono::DateTime<chrono::Utc>,
+) -> Performance {
+    let reviewed = fsrs_schedule(perf, review_status, reviewed_at);
+
+    match (perf, review_status) {
+        // New
+        (Performance::New, ReviewStatus::Pass) => Performance::LearningB(reviewed),
+        (Performance::New, ReviewStatus::Fail) => Performance::LearningA(reviewed),
+
+        // Learning A
+        (Performance::LearningA(_), ReviewStatus::Fail) => Performance::LearningA(reviewed),
+        (Performance::LearningA(_), ReviewStatus::Pass) => Performance::LearningB(reviewed),
+
+        // Learning B
+        (Performance::LearningB(_), ReviewStatus::Pass) => Performance::Review(reviewed),
+        (Performance::LearningB(_), ReviewStatus::Fail) => Performance::LearningA(reviewed),
+
+        // Review
+        (Performance::Review(_), ReviewStatus::Fail) => Performance::LearningB(reviewed),
+        (Performance::Review(_), ReviewStatus::Pass) => Performance::Review(reviewed),
+    }
+}
+
+pub fn fsrs_schedule(
     perf: Performance,
     review_status: ReviewStatus,
     reviewed_at: chrono::DateTime<chrono::Utc>,
@@ -125,21 +163,17 @@ pub fn update_performance(
             initial_difficulty(review_status),
             0,
         ),
-        Performance::Reviewed(ReviewedPerformance {
-            last_reviewed_at,
-            stability,
-            difficulty,
-            review_count,
-            ..
-        }) => {
+        Performance::LearningA(rp) | Performance::LearningB(rp) | Performance::Review(rp) => {
             let elapsed_days = reviewed_at
-                .signed_duration_since(last_reviewed_at)
+                .signed_duration_since(rp.last_reviewed_at)
                 .num_seconds() as f64
                 / 86_400.0;
-            let recall = calculate_recall(elapsed_days.max(0.0), stability);
-            let stability = calculate_stability(difficulty, stability, recall, review_status);
-            let difficulty = new_difficulty(difficulty, review_status);
-            (stability, difficulty, review_count)
+
+            let recall = calculate_recall(elapsed_days.max(0.0), rp.stability);
+            let stability = calculate_stability(rp.difficulty, rp.stability, recall, review_status);
+            let difficulty = new_difficulty(rp.difficulty, review_status);
+
+            (stability, difficulty, rp.review_count)
         }
     };
     let interval_raw: f64 = calulate_interval(TARGET_RECALL, stability);
@@ -163,8 +197,7 @@ pub fn update_performance(
 mod tests {
 
     use super::{
-        MAX_INTERVAL, MIN_INTERVAL, Performance, ReviewStatus, ReviewedPerformance,
-        update_performance,
+        MAX_INTERVAL, MIN_INTERVAL, Performance, ReviewStatus, ReviewedPerformance, fsrs_schedule,
     };
 
     use chrono::Duration;
@@ -176,7 +209,7 @@ mod tests {
     #[test]
     fn test_update_new_card() {
         let reviewed_at = chrono::Utc::now();
-        let result = update_performance(Performance::New, ReviewStatus::Pass, reviewed_at);
+        let result = fsrs_schedule(Performance::New, ReviewStatus::Pass, reviewed_at);
         let ReviewedPerformance {
             last_reviewed_at,
             stability,
@@ -209,8 +242,8 @@ mod tests {
             review_count: 1,
         };
         let reviewed_at = now;
-        let result = update_performance(
-            Performance::Reviewed(initial_perf),
+        let result = fsrs_schedule(
+            Performance::Review(initial_perf),
             ReviewStatus::Pass,
             reviewed_at,
         );
@@ -234,7 +267,7 @@ mod tests {
     #[test]
     fn test_reviews() {
         let mut reviewed_at = chrono::Utc::now();
-        let mut performance = update_performance(Performance::New, ReviewStatus::Pass, reviewed_at);
+        let mut performance = fsrs_schedule(Performance::New, ReviewStatus::Pass, reviewed_at);
         for _ in 0..100 {
             let interval_raw = performance.interval_raw;
             let interval_rounded: f64 = interval_raw.round();
@@ -242,8 +275,8 @@ mod tests {
             let interval_duration: Duration = Duration::days(interval_clamped as i64);
             reviewed_at += interval_duration;
 
-            performance = update_performance(
-                Performance::Reviewed(performance),
+            performance = fsrs_schedule(
+                Performance::Review(performance),
                 ReviewStatus::Pass,
                 reviewed_at,
             );
@@ -260,8 +293,8 @@ mod tests {
             let interval_duration: Duration = Duration::days(interval_clamped as i64);
             reviewed_at += interval_duration;
 
-            performance = update_performance(
-                Performance::Reviewed(performance),
+            performance = fsrs_schedule(
+                Performance::Review(performance),
                 ReviewStatus::Fail,
                 reviewed_at,
             );
