@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use crate::card::Card;
-use crate::crud::CardStatsRow;
+use crate::crud::{CardStatsRow, LEARN_AHEAD_THRESHOLD_MINS};
 use crate::fsrs::{ReviewStage, calculate_recall};
 
 #[derive(Debug, Default)]
@@ -94,7 +94,7 @@ impl CardStats {
                 self.upcoming_month += 1;
             }
             Some(due_date) => {
-                if due_date <= now {
+                if due_date <= now + LEARN_AHEAD_THRESHOLD_MINS {
                     self.due_cards += 1;
                     let day = now.format("%Y-%m-%d").to_string();
                     *self.upcoming_week.entry(day).or_insert(0) += 1;

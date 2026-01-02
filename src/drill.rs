@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::card::{Card, CardContent};
 use crate::crud::DB;
-use crate::fsrs::ReviewStatus;
+use crate::fsrs::{MINUTES_PER_DAY, ReviewStatus};
 use crate::markdown::render_markdown;
 use crate::theme::Theme;
 use crate::utils::register_all_cards;
@@ -62,9 +62,9 @@ struct LastAction {
 impl LastAction {
     fn print(&self) -> String {
         let mut show_again = String::new();
-        if self.show_again_duration <= 15.0 / (60.0 * 24.0) {
+        if self.show_again_duration <= 15.0 / MINUTES_PER_DAY {
             show_again.push_str("<15 mins");
-        } else if self.show_again_duration <= 30.0 / (60.0 * 24.0) {
+        } else if self.show_again_duration <= 30.0 / MINUTES_PER_DAY {
             show_again.push_str("<30 mins");
         } else if self.show_again_duration <= 0.5 {
             show_again.push_str("<12 hours");

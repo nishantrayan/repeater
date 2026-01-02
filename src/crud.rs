@@ -16,7 +16,7 @@ use crate::fsrs::update_performance;
 use crate::fsrs::{Performance, ReviewStage, ReviewStatus, ReviewedPerformance};
 use crate::stats::CardStats;
 
-const LEARN_AHEAD_THRESHOLD_MINS: Duration = Duration::minutes(20);
+pub const LEARN_AHEAD_THRESHOLD_MINS: Duration = Duration::minutes(20);
 
 #[derive(Clone)]
 pub struct DB {
