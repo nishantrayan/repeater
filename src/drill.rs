@@ -37,13 +37,7 @@ pub async fn run(
     card_limit: Option<usize>,
     new_card_limit: Option<usize>,
 ) -> Result<()> {
-    let hash_cards = match register_all_cards(db, paths).await {
-        Ok(cards) => cards,
-        Err(err) => {
-            eprint!("{:#}", err);
-            return Ok(());
-        }
-    };
+    let hash_cards = register_all_cards(db, paths).await?;
     let cards_due_today = db.due_today(hash_cards, card_limit, new_card_limit).await?;
 
     if cards_due_today.is_empty() {

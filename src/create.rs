@@ -91,13 +91,6 @@ async fn create_card_append_file(db: &DB, path: &Path, contents: &str) -> Result
 }
 
 async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
-    let existing_cards = match cards_from_md(card_path) {
-        Ok(cards) => cards,
-        Err(err) => {
-            eprint!("{:#}", err);
-            return Ok(());
-        }
-    };
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(
@@ -114,6 +107,7 @@ async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
     let editor_result: io::Result<()> = async {
         let mut editor = Editor::new();
         let mut status: Option<String> = None;
+        let existing_cards = cards_from_md(card_path).map_err(io::Error::other)?;
         let unique_hashes: HashSet<_> = existing_cards.into_iter().map(|c| c.card_hash).collect();
 
         let mut num_cards_in_collection = unique_hashes.len();
