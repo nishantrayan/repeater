@@ -9,7 +9,6 @@ use crate::markdown::render_markdown;
 use crate::theme::Theme;
 use crate::utils::register_all_cards;
 
-use crate::error::error_display;
 use anyhow::{Context, Result};
 use crossterm::event::KeyModifiers;
 use crossterm::{
@@ -40,9 +39,7 @@ pub async fn run(
     let hash_cards = match register_all_cards(db, paths).await {
         Ok(cards) => cards,
         Err(err) => {
-            let lines = crate::error::format_error_lines("Error parsing cards", &err);
-            let refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-            let _ = error_display(refs);
+            eprint!("{:#}", err);
             return Ok(());
         }
     };

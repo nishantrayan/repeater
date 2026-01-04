@@ -5,7 +5,6 @@ pub mod create;
 pub mod crud;
 pub mod drill;
 pub mod editor;
-pub mod error;
 pub mod fsrs;
 pub mod import;
 pub mod markdown;

@@ -2,7 +2,6 @@ use crate::{
     card::CardType,
     crud::DB,
     editor::Editor,
-    error::error_display,
     theme::Theme,
     utils::{cards_from_md, content_to_card, is_markdown},
 };
@@ -95,12 +94,7 @@ async fn capture_cards(db: &DB, card_path: &Path) -> io::Result<()> {
     let existing_cards = match cards_from_md(card_path) {
         Ok(cards) => cards,
         Err(err) => {
-            let lines = crate::error::format_error_lines(
-                &format!("Failed to parse {}", card_path.display()),
-                &err,
-            );
-            let refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-            let _ = error_display(refs);
+            eprint!("{:#}", err);
             return Ok(());
         }
     };
