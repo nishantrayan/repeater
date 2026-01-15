@@ -69,10 +69,8 @@ In practice, this means less flexibility but much less friction. You edit cards 
    repeater drill cards
    ```
 
-   - `Space`/`Enter`: reveal the answer or cloze.
-   - `O`: open the first media file (image/audio/video) referenced in the current card before revealing the answer.
-   - `F`: mark as `Fail`, `Space`/`Enter`: mark as `Pass`.
-   - `Esc` or `Ctrl+C`: end the session early (progress so far is saved).
+
+That's it! `repeater` will automatically track progress and schedule reviews.
 
 
 ## Installation
@@ -100,3 +98,7 @@ irm https://github.com/shaankhosla/repeater/releases/latest/download/repeater-in
 ```
 npm install @shaankhosla/repeater
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=shaankhosla/repeater&type=date&legend=top-left)](https://www.star-history.com/#shaankhosla/repeater&type=date&legend=top-left)
