@@ -40,8 +40,7 @@ pub fn ask_yn(prompt: String, default: bool) -> bool {
             .unwrap();
 
         match s.trim().to_lowercase().as_str() {
-            "" if default => return true,
-            "" if !default => return false,
+            "" => return default,
             "y" | "yes" => return true,
             "n" | "no" => return false,
             _ => eprintln!("Please answer y or n."),
