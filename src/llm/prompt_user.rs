@@ -1,5 +1,6 @@
 use crate::card::{Card, CardContent};
 use crate::palette::Palette;
+use crate::utils::pluralize_with;
 use dialoguer::Input;
 use dialoguer::theme::ColorfulTheme;
 
@@ -19,11 +20,13 @@ pub fn rephrase_user_prompt(cards: &[Card], total_needing: usize) -> Option<Stri
 }
 
 fn rephrase_build_user_prompt(total: usize, sample_question: &str) -> String {
-    let plural = if total == 1 { "" } else { "s" };
     format!(
-        "\n{} can rephrase {} basic question{plural} before this drill session.\n\n{}\n{}\n",
+        "\n{} can rephrase {} before this drill session.\n\n{}\n{}\n",
         Palette::paint(Palette::INFO, "repeater"),
-        Palette::paint(Palette::WARNING, total),
+        pluralize_with("basic question", total, |n| Palette::paint(
+            Palette::WARNING,
+            n
+        )),
         Palette::dim("Example question:"),
         sample_question
     )
@@ -52,14 +55,14 @@ fn cloze_build_user_prompt(total_needing: usize, card_text: &str) -> String {
     let additional_missing = total_needing.saturating_sub(1);
     let mut user_prompt = String::new();
 
-    let plural = if total_needing == 1 { "" } else { "s" };
-
     user_prompt.push('\n');
     user_prompt.push_str(&format!(
-        "{} found {} cloze card{plural} missing bracketed deletions.",
+        "{} found {} missing bracketed deletions.",
         Palette::paint(Palette::INFO, "repeater"),
-        Palette::paint(Palette::WARNING, total_needing),
-        plural = plural,
+        pluralize_with("cloze card", total_needing, |n| Palette::paint(
+            Palette::WARNING,
+            n
+        )),
     ));
 
     user_prompt.push_str(&format!(
@@ -69,11 +72,12 @@ fn cloze_build_user_prompt(total_needing: usize, card_text: &str) -> String {
     ));
 
     let other_fragment = if additional_missing > 0 {
-        let other_plural = if additional_missing == 1 { "" } else { "s" };
         format!(
-            " along with {} other card{other_plural}",
-            Palette::paint(Palette::WARNING, additional_missing),
-            other_plural = other_plural
+            " along with {}",
+            pluralize_with("other card", additional_missing, |n| Palette::paint(
+                Palette::WARNING,
+                n
+            )),
         )
     } else {
         String::new()

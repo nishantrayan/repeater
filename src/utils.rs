@@ -17,10 +17,19 @@ pub fn trim_line(line: &str) -> Option<&str> {
 }
 
 pub fn pluralize(word: &str, count: usize) -> String {
+    pluralize_with(word, count, |n| n.to_string())
+}
+
+pub fn pluralize_with<F>(word: &str, count: usize, format_count: F) -> String
+where
+    F: Fn(usize) -> String,
+{
+    let count_str = format_count(count);
+
     if count == 1 {
-        format!("{count} {word}")
+        format!("{count_str} {word}")
     } else {
-        format!("{count} {word}s")
+        format!("{count_str} {word}s")
     }
 }
 
